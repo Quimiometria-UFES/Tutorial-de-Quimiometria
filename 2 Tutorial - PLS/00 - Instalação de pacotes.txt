@@ -1,0 +1,25 @@
+%% 00 - Instalação de pacotes
+
+% Como estamos falando de práticas que envolvem cálculos estatísticos e
+% matemáticos, á interessante que certos pacotes sejam instalados no Octave e
+% puxados toda vez que iniciamos uma rotina no Octave, lembrando que isso não é
+% necessário no Matlab.
+
+% Localização dos Pacotes
+cd('C:\Users\quim_massas\OneDrive - aluno.ufes.br\Quimiometria\IFES Ciencia\Pacotes');
+
+% Pacote voltado para estatística.
+pkg install statistics-1.4.3.tar.gz
+
+% Caso a instalação ocorra corretamente o pacote irá aparecer na lista.
+pkg list
+
+% Pacote voltado para uso do excel.
+pkg install io-2.6.4.tar.gz
+
+% Esses são os pacotes necessários para aplicação do nosso tutorial. Para
+% puxá-los em uma rotina você só precisa fazer os seguintes comandos:
+pkg load statistics
+pkg load io
+
+% Esse é a versão prólogo do nosso tutorial, esperamos que aproveitem.

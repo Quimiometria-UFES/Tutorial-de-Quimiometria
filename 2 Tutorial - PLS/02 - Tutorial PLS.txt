@@ -1,0 +1,428 @@
+% Rotina para desenvolvimento dos modelos de PLS utilizando dados contínuos
+% e propriedades físico-quimicas
+% Essa rotina estaá dividida nas seguintes partes:
+% T1 - Conhecendo o plsmodel
+% T2 - Praticando.
+% T3 - ???
+
+% Lembre-se o octave nao le acentos e nem cedilha, por isso, teremos alguns
+% erros de portugues devido a ausencia desses.
+
+___________________________________________________________________________
+
+%%
+%%%%%%%%%%%%%% 01 - Conhecendo o plsmodel
+
+% Recomendo comecar a pratica com os seguintes comandos.
+clear        % Limpa o Workspace
+clc          % Limpa o Command Window
+close all    % Fecha qualquer imagem aberta.
+
+% Agora iremos puxar os pacotes necessarios. (OC Exclusivo do Octave)
+pkg load statistics
+pkg load io
+
+% Vamos mudar o Diretorio para onde colocamos os dados do IFES-Ciencia
+% {Lembre-se de substituir o diretorio dentro do comando "cd" pelo diretorio
+% correto.}
+cd('C:\Users\Exemplo\...\Monografia\PLS_Model');
+
+load('Dados_API.mat')
+
+% Note que os dados nos temos;
+% Xmir     % Espectro MIR das nossas amostras.
+% y        % Sao os dados quantitativos.
+% objetos  % E a separacao de calibracao e teste das amostras.
+% Nmir     % Comprimento de onda do espectro MIR.
+
+% Assim, teremos que separar os dados entre calibracao e teste usando as
+% seguintes linhas de comando.
+Xcal = Xmir(objetos.cal,:); ycal = y(objetos.cal,:);
+Xtest = Xmir(objetos.test,:); ytest = y(objetos.test,:);
+
+% No plsmodel temos que utilizar um conjunto de opcoes para ele funcionar.
+% E como se fosse um manual de instrucoes, ou mapa, para o pls fazer os
+% calculos da forma desejada.
+
+options=[];
+options.vene           = 5;
+% Tamanho da janela de validacao cruzada, recomenda-se 5, ou 10;
+
+options.vl             = 20;
+% Numero de variaveis latentes;
+% Como nosso objetivo inicial e otimizacao colocamos 20 para ver como o
+% RMSECV se comporta em cada variavel latente.
+
+% O RMSECV e o erro quadradico medio de calibracao cruzada, este parametro de
+% avaliacao e utilizado para podermos otimizar o numero de variavel latente.
+
+% Vamos rodar o plsmodel utilizando so as amostras de calibracao para
+% termos uma nocao do comportamento do RMSECV ao longo das variaveis
+% latentes (VL).
+modelo=plsmodel3(Xcal,ycal,options);
+
+% Vemos no grafico gerado que a maior queda de RMSECV ocorre entre o VL 3 e
+% 4, todavia o RMSECV aparenta estabilizar entre os valores 2,4 e 2,6,
+% faixa primeiro alcancada pelo VL 4. Assim, utilizamos este valor.
+
+options.vl             = 4;
+modelo = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+% No 'modelo' temos alguns parametros de avaliacao que merecem destaque:
+modelo.RMSEC; % 2.3162
+% Erro quadradico medio de calibricao, onde podemos ter uma nocao do erro
+% das amostras de calibracao.
+modelo.RMSEP; % 1.9387
+% Erro quadradico medio de previsao, onde podemos ter uma nocao do erro das
+% amostras de teste.
+modelo.R2c;   % 0.9414
+% Coeficiente de determinacao das amostras de calibracao, quanto mais
+% proximo a 1, melhor o modelo.
+modelo.R2p;   % 0.9440
+% Coeficiente de determinacao das amostras de teste.
+
+% Com estes quatro parametros podemos avaliar se o modelo e bom, ou nao,
+% pelos altos valores de coeficiente de determinacao, poderiamos dizer que
+% o modelo foi bem sucedido, entretanto, quando analisamos a mesma
+% propriedades na literatura, percebemos que o RMSEP considerado bom e
+% proximo ao 1.2 e o R2c acima de 0.95. O que podemos fazer aqui, para
+% melhorar o modelo, e testar outros valores de VL e outros
+% aperfeicoamentos.
+
+% Agora, para fins de teste, vamos testar outros VL. Eu recomendaria testar
+% o 5 e o 6, entretanto, tome cuidado ao escolher o VL, conforme aumenta o
+% numero de variaveis latentes menor tende a ficar o RMSEC e
+% maior tende a ficar o RMSEP, como explicado no artigo.
+
+options.vl             = 5;
+modelo = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+modelo.R2c;   % 0.9537
+modelo.R2p    % 0.9500
+
+options.vl             = 6;
+modelo = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+modelo.RMSEC % 1.9061
+modelo.RMSEP % 1.4480
+modelo.R2c   % 0.9614
+modelo.R2p   % 0.9582
+
+% Com base nos parametros de avalicao podemos dizer que o melhor modelo e o
+% com seis variaveis latentes, devido a ambos os RMSE serem menores e ambos
+% os R2 serem mais proximos de 1, entretanto, isso nao basta para afirmar
+% que ele e melhor, devemos comprovar isso com alguns testes.
+
+% Primeiro, fazemos os dois modelos que queremos comparar, um com 4
+% variaveis latentes e outro com 6 variaveis.
+
+options.vl             = 4;
+modelo4 = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+options.vl             = 6;
+modelo6 = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+%VL       4         6
+%RMSEC  2.3162    1.9061
+%RMSEP  1.9387    1.4480
+%R2c    0.9414    0.9614
+%R2p    0.9440    0.9582
+
+% Assim, vamos comparar primeiro os modelos, avaliando por grafico de
+% medido x predito, ou reference x predicted.
+
+close all %Fechando imagens ja criadas.
+
+subplot(2,1,1)
+plot(modelo4.Ycal(:,1),modelo4.Ycal(:,2),'bo','LineWidth',1); hold on;
+plot(modelo4.Ytest(:,1),modelo4.Ytest(:,2),'r*','LineWidth',1); hold on;
+ylim([5 65]); xlim([5 65]);
+plot(xlim, ylim, '--k');legend('Calibration','Prediction','Location','southeast');
+title('Modelo 4');
+set(gca,'FontSize',12);xlabel('Reference','fontsize',12);
+ylabel('Predicted','fontsize',12);
+
+subplot(2,1,2)
+plot(modelo6.Ycal(:,1),modelo6.Ycal(:,2),'bo','LineWidth',1); hold on;
+plot(modelo6.Ytest(:,1),modelo6.Ytest(:,2),'r*','LineWidth',1); hold on;
+ylim([5 65]); xlim([5 65]);
+plot(xlim, ylim, '--k');legend('Calibration','Prediction','Location','southeast');
+title('Modelo 6');
+set(gca,'FontSize',12);xlabel('Reference','fontsize',12);
+ylabel('Predicted','fontsize',12);
+
+% Para melhor avaliacao/comparacao, tente deixar os graficos na forma quadrada,
+% afinal, tanto eixo x e y tem a mesma dimensao.
+% Um grafico de medido e predito trata-se de uma comparacao sobre o real
+% valor de propriedade independente (y) de uma amostra e o que foi previsto
+% pelo modelo. Entao, quanto melhor o modelo, mais proxima a amostra fica
+% da linha de referencia.
+% Na comparacao dos graficos feitos com VL 4 e 6, percebe-se que tem pouca
+% diferenca na faixa 10 a  37 e uma diferenca significativa na faixa 40 a
+% 60. Todavia isso, ainda, nao e o suficiente para determinar que o modelo
+% 6 e realmente melhor.
+
+%% Teste de comparacao
+
+% Depois, utilizamos o "accuracy_test" que e uma funcao de comparacao de
+% modelos multivariados, que utiliza teste randomico de exatidao, esta
+% funcao ira confirma se existe uma diferenca estatistica, ou nao.
+
+%[pvalue,dist_tt,meandiff] = accuracy_test(yO,ypA,ypB,randuni,500000,0.05)
+% yO    ; Valor de referencia do y test.
+% ypA   ; Valor de y test previsto pelo modelo A.
+% tpB   ; Valor de y test previsto pelo modelo B.
+% teste ; Tipo de teste, que pode ser:
+%    randbi  : teste randomico bicaudal.
+%    randuni : teste randomico unicaudal. yhatA > yhatB
+% niter ; Numero de permutacoes.
+% alpha ; Nivel de significancia adotado;
+%
+% Neste caso iremos usar estes padroes.
+tic
+[pvalue,dist_tt,meandiff] = accuracy_test(ytest,modelo4.Ytest(:,2),modelo6.Ytest(:,2),'randbi',500000,0.05);
+toc  %{1068 sec}
+% Esta demorando? Nao se preocupe, costuma demorar mesmo.
+
+% Tem duas formas de avaliar se os modelos sao diferentes;
+% 1- Pela resposta da funcao, que caso sejam diferentes dara
+% "Modelos com DIFERENCAS na acuracia".
+% 2- Comparar o valor do pvalue obtido com o alpha utilizado, caso o pvalue
+% seja menor qu 0.05, os modelos tem diferenca estatistica e o modelo com
+% 6 VL e melhor.
+
+% Assim, temos duas confirmacoes que o modelo com 6 variaveis latentes e
+% melhor que o modelo 4. Mas, isso e so o comeco e nem de longe o melhor
+% modelos que podemos alcancar, mas antes de encerrar o tutorial, vamos
+% salvar os dados
+
+save("Tutorial 02-1")
+
+% Neste comando salvamos todos arquivos internos do "Ambiente de Trabalho"
+% em um unico arquivo '.mat'. Nesse modo, caso queiremos retomar o tutorial
+% poderemos sem precisar refazer tudo de novo.
+___________________________________________________________________________
+%%
+%%%%%%%%%%%%%%  02 - Praticando.
+% Aqui iremos simular um pratica da quimiometria envolvendo o PLS. Como se
+% fossemos um quimico recebendo o dado e precisando trata-lo com
+% quimiometria.
+
+clear all;
+clc;
+close all;
+
+% Agora iremos puxar os pacotes necessarios. (OC)
+pkg load statistics
+pkg load io
+
+cd('C:\Users\Exemplo\...\Monografia\PLS_Model');
+% Como extrair dados de planilha excel.
+[y,~,~]=xlsread('Oleos_Adulterados.xlsx','Plan1','B2:B230'); 
+%[A,B,C]=xlsread('XXX','YYY','ZZZ');
+% A funcao xlsread e utilizada para extrair informacao de planilhas como
+% xls, xlsx e csv.
+% INPUT:
+% XXX = O nome da planilha desejada, incluindo o formato.
+% YYY = A aba que os dados estao.
+% ZZZ = A faixa que os dados se encontram.
+% OUTPUT:
+% A = Caso o dado seja numero.
+% B = Caso o dado seja caracteres.
+% C = Numerico e letras.
+
+[num,~,~]=xlsread('Oleos_Adulterados.xlsx','Plan1','C1:DW1');
+[X,~,~]=xlsread('Oleos_Adulterados.xlsx','Plan1','C2:DW230');
+[~,Sample,~]=xlsread('Oleos_Adulterados.xlsx','Plan1','A2:A230');
+
+% Estes dados sao dados de Azeite adulterados com oleo, provindos do artigo
+% [10.1016/j.focha.2022.100074], coletadas com autorizacao e modificados
+% para nao ficar identico.
+% Algumas pessoas maliciosas tendem a falsificar azeite com oleos baratos
+% com o objetivo de ter um alto lucro enquanto prejudicam o consumidor.
+% Assim, artigos como esse, que aplicam uma tecnica portatil de
+% infravermelho, no caso o infravermelho proximo, sao de suma importancia.
+
+% A primeira coisa que se deve fazer ao receber um dado desse e analisar o
+% espectro.
+
+plot(num,X);
+title('Espectros Puro')
+set(gca,'FontSize',16);
+xlim([890 1700]);ylim([0.55 1.3]);
+
+% Note que temos uma amostra anomala no conjunto, nitidamente ela nao tem o
+% mesmo perfil espectroscopico das demais amostras, assim, e interessante
+% ja remover restas amostra, afinal, tratase de um outlier.
+
+AAA= find(X(:,1) > 1);
+% Neste comando, estou procurando na fonte analitica X, primeira coluna,
+% uma amostra que tenha o valor acima de 1, ou seja, nossa amostra
+% anomo-la. Que ser� identificada com o AAA.
+
+X(AAA,:) = []; y(AAA,:) = []; Sample(AAA,:) = [];
+% A amostra 223 � a anomo-la, ent�o devo tira-la de todas partes para n�o
+% atrapalhar minha analise.
+
+% Como se trata de dados de um artigo iremos utilizar a mesma separa��o
+% cal/test dele, com amostras de 3, 7, 10 e 30% pertencentes ao grupo
+% teste. Para isso iremos combinar for e if. Para melhor compreensao do
+% for, peco que leiam o "00 - Conhecendo a funcao for", afinal, este
+% tutorial ja esta grande.
+
+% Primeiro criamos a variavel "objetos" para armazenar onde cada amostra
+% estara.
+objetos.cal  = [];
+objetos.test = [];
+
+% Agora iremos usar um  for, uma fun��o ciclica, que o "qi" ira variar de 1
+% a  1 at� a quantidade de linhas de X, ou seja, numero de amostras.
+for qi=1:1:size(X,1);
+    
+% Se y tem valor 3 7 10 e 30;
+if y(qi) == 3 || y(qi) == 7 || y(qi) == 10 ||y(qi) == 30;
+    % Caso o y(qi) obedeca a condicao.
+objetos.test = [objetos.test;qi];
+else
+    % Caso o y(qi) n�o obedeca a condicao.
+objetos.cal = [objetos.cal;qi];
+end
+end
+
+% Separando as amostras em conjunto calibracao e teste.
+Xcal = X(objetos.cal,:); Xtest = X(objetos.test,:);
+ycal = y(objetos.cal,:); ytest = y(objetos.test,:);
+
+close all
+plot(1:1:size(ycal,1),ycal,'bo'); hold on;
+plot(1:1:size(ytest,1),ytest,'r*'); hold on;
+
+% Note que esta separacao segue todos pre-requisitos citados. Agora vamos
+% para a modelagem.
+
+% Modelando
+
+close all
+options=[];
+options.vene           = 5;
+options.vl             = 20;
+modelo=plsmodel3(Xcal,ycal,options)
+
+options.vl             = 9;
+modelo9 = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+options.vl             = 15;
+modelo15 = plsmodel3(Xcal,ycal,Xtest,ytest,options);
+
+%VL          9        15
+%RMSEC    4.1114    3.4256
+%RMSEP    5.0965    4.6783
+%R2c      0.9377    0.9584
+%R2p      0.7597    0.7937
+
+% O VL melhor foi o 15 como podemos analisar com base nos parametros de
+% avaliacao, todavia, vamos avaliar o grafico dee medido e previsto.
+
+subplot(2,1,1);
+plot(modelo9.Ycal(:,1),modelo9.Ycal(:,2),'bo','LineWidth',1); hold on;
+plot(modelo9.Ytest(:,1),modelo9.Ytest(:,2),'r*','LineWidth',1); hold on;
+ylim([0 65]); xlim([0 65]);
+plot(xlim, ylim, '--k');legend('Calibration','Prediction','Location','southeast');
+title('Modelo 9');
+set(gca,'FontSize',12);xlabel('Reference','fontsize',12);
+ylabel('Predicted','fontsize',12);
+
+subplot(2,1,2);
+plot(modelo15.Ycal(:,1),modelo15.Ycal(:,2),'bo','LineWidth',1); hold on;
+plot(modelo15.Ytest(:,1),modelo15.Ytest(:,2),'r*','LineWidth',1); hold on;
+ylim([0 65]); xlim([0 65]);
+plot(xlim, ylim, '--k');legend('Calibration','Prediction','Location','southeast');
+title('Modelo 15');
+set(gca,'FontSize',12);xlabel('Reference','fontsize',12);
+
+% 
+
+
+
+
+
+
+%%
+%%%%%%%%%%%%%%  03 - Exercicio para praticar.
+% Agora, exericio para praticar, no conjunto do plsmodel2 tem um workspace
+% chamaro "Nitrogenio Total.mat", com as seguintes informacoes:
+% Indet  : Identificacao das amostras.
+% num    : Numero de onda do espectro de infravermelho.
+% X      : Espectro de Infravermelh Medio das amostras. [Fonte Analitica]
+% y      : Vetor de concentracao de Nitrogenio total.
+
+% Alem disso, os modelos utilizados como exemplo aqui neste tutorial nao
+% sao os melhores obtidos pelo nosso laboratorio, entao se sinta desafiado
+% a tentar encontra-los. O Gabarito se encontra no final desta rotina.
+
+%%
+%%%%%%%%%%%%%%  00 - Parte Extra.
+
+% 00 - Conhecendo a funcao for
+
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%
+%%%%%%%%%%%%%% 00 - Gabarito
+
+% 01-02
+
+%VL          12
+%RMSEC    0.7243
+%RMSEP    0.8121
+%R2c      0.9949
+%R2p      0.9866
+%LD       0.3422
+%LQ       1.1407
+%Pret   DerivNorm
+
+% 03
+
+%VL          17
+%RMSEC        4
+%RMSEP        4
+%R2c     0,9561
+%R2p     0,8542
+%LD           5
+%LQ          17
+%Pret Deriv/Msc
+
+% 04
+
+%VL           9
+%RMSEC   0.0457
+%RMSEP   0.0245
+%R2c     0.9070
+%R2p     0.9349
+%LD      0.0087
+%LQ      0.0289
+%Pret    Nenhum
