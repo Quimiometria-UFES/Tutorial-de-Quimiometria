@@ -37,12 +37,15 @@ end
 
 %% Desenvolvimento do modelo.
 if narg == 1
+    
    Xcal=pretrat(Xcal,[],{'center'}); % pretreat Xcal
    CV=plscv(Xcal,ycal,options.vl,options.vene,{'center'});
+   if options.graf ~= 0
    plot(1:options.vl,CV.RMSECV,'b'), hold on
    plot(1:options.vl,CV.RMSECV,'ko','MarkerFaceColor','b')
    xlabel('Latent Variable Number','FontSize',14);
    ylabel('RMSECV','FontSize',14);
+   end
 
    modelo.RMSECV = CV.RMSECV;
    modelo.R2cv = CV.Q2;
@@ -94,9 +97,9 @@ modelo.R2p     = R2p;
 modelo.Ycal    = [ycal ycal2];
 modelo.Ycv     = [ycal ycv2];
 modelo.Ytest   = [ytest ytest2];
-%modelo.bias.c  = biasc;
-%modelo.bias.cv = biascv;
-%modelo.bias.p  = biasp;
+modelo.bias.c  = biasc;
+modelo.bias.cv = biascv;
+modelo.bias.p  = biasp;
 modelo.options = options;
 
 %% Outras informa��es;
@@ -197,10 +200,10 @@ y(indexyy)=y;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   %%% mean and sd of squared error %%%%%%%%%%%%
-  error=YR-repmat(y,1,A);
-  error2=error.^2;
-  error2_MEAN=sum(error2)/Mx;
-  error2_SD= sqrt(sum((error2-repmat(mean(error2),Mx,1)).^2)/(Mx-1)); % unbiased estimator
+  error       = YR-repmat(y,1,A);
+  error2      = error.^2;
+  error2_MEAN = sum(error2)/Mx;
+  error2_SD   = sqrt(sum((error2-repmat(mean(error2),Mx,1)).^2)/(Mx-1)); % unbiased estimator
 
   %+++ calculate Q2
   cv=sqrt(error2_MEAN);
